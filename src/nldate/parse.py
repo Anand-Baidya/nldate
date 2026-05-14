@@ -3,6 +3,24 @@ import re
 from datetime import date, timedelta
 
 
+WORD_NUMS = {
+    "a": 1,
+    "an": 1,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+}
+
+
 def parse(s: str, today: date | None = None) -> date:
     if today is None:
         today = date.today()
@@ -53,20 +71,34 @@ def parse(s: str, today: date | None = None) -> date:
             days_ahead = (i - today.weekday() + 7) % 7 or 7
             return today + timedelta(days=days_ahead)
 
-    m = re.fullmatch(r"in (\d+) (day|days|week|weeks|month|months|year|years)", s)
+    units = r"(day|days|week|weeks|month|months|year|years)"
+
+    m = re.fullmatch(rf"in (\d+) {units}", s)
     if m:
         return _add_unit(today, int(m.group(1)), m.group(2))
 
-    m = re.fullmatch(r"(\d+) (day|days|week|weeks|month|months|year|years) ago", s)
+    m = re.fullmatch(rf"in ([a-z]+) {units}", s)
+    if m and m.group(1) in WORD_NUMS:
+        return _add_unit(today, WORD_NUMS[m.group(1)], m.group(2))
+
+    m = re.fullmatch(rf"(\d+) {units} ago", s)
     if m:
         return _add_unit(today, -int(m.group(1)), m.group(2))
 
-    m = re.fullmatch(
-        r"(\d+) (day|days|week|weeks|month|months|year|years) (before|after|from) (.+)",
-        s,
-    )
+    m = re.fullmatch(rf"([a-z]+) {units} ago", s)
+    if m and m.group(1) in WORD_NUMS:
+        return _add_unit(today, -WORD_NUMS[m.group(1)], m.group(2))
+
+    m = re.fullmatch(rf"(\d+) {units} (before|after|from) (.+)", s)
     if m:
         n = int(m.group(1))
+        direction = 1 if m.group(3) in ("after", "from") else -1
+        ref = parse(m.group(4), today)
+        return _add_unit(ref, direction * n, m.group(2))
+
+    m = re.fullmatch(rf"([a-z]+) {units} (before|after|from) (.+)", s)
+    if m and m.group(1) in WORD_NUMS:
+        n = WORD_NUMS[m.group(1)]
         direction = 1 if m.group(3) in ("after", "from") else -1
         ref = parse(m.group(4), today)
         return _add_unit(ref, direction * n, m.group(2))
@@ -79,31 +111,15 @@ def parse(s: str, today: date | None = None) -> date:
         ref = parse(m.group(4), today)
         return _add_months(ref, direction * (years * 12 + months))
 
-    word_nums = {
-        "one": 1,
-        "two": 2,
-        "three": 3,
-        "four": 4,
-        "five": 5,
-        "six": 6,
-        "seven": 7,
-        "eight": 8,
-        "nine": 9,
-        "ten": 10,
-        "eleven": 11,
-        "twelve": 12,
-        "a": 1,
-        "an": 1,
-    }
     m = re.fullmatch(
-        r"([a-z]+) (day|days|week|weeks|month|months|year|years) (from|before|after) (.+)",
-        s,
+        r"([a-z]+) years? and ([a-z]+) months? (before|after|from) (.+)", s
     )
-    if m and m.group(1) in word_nums:
-        n = word_nums[m.group(1)]
-        direction = -1 if m.group(3) == "before" else 1
+    if m and m.group(1) in WORD_NUMS and m.group(2) in WORD_NUMS:
+        years = WORD_NUMS[m.group(1)]
+        months = WORD_NUMS[m.group(2)]
+        direction = 1 if m.group(3) in ("after", "from") else -1
         ref = parse(m.group(4), today)
-        return _add_unit(ref, direction * n, m.group(2))
+        return _add_months(ref, direction * (years * 12 + months))
 
     result = _parse_absolute(s)
     if result:
