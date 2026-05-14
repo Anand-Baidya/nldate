@@ -1,5 +1,6 @@
-from datetime import date, timedelta
+import calendar
 import re
+from datetime import date, timedelta
 
 
 def parse(s: str, today: date | None = None) -> date:
@@ -8,12 +9,29 @@ def parse(s: str, today: date | None = None) -> date:
 
     s = s.strip().lower()
 
-    if s == "today":
+    if s in ("today", "now"):
         return today
     if s == "tomorrow":
         return today + timedelta(days=1)
     if s == "yesterday":
         return today + timedelta(days=-1)
+    if s == "the day after tomorrow":
+        return today + timedelta(days=2)
+    if s == "the day before yesterday":
+        return today + timedelta(days=-2)
+
+    if s == "next week":
+        return today + timedelta(weeks=1)
+    if s == "last week":
+        return today - timedelta(weeks=1)
+    if s == "next month":
+        return _add_months(today, 1)
+    if s == "last month":
+        return _add_months(today, -1)
+    if s == "next year":
+        return _add_months(today, 12)
+    if s == "last year":
+        return _add_months(today, -12)
 
     weekdays = [
         "monday",
@@ -28,10 +46,10 @@ def parse(s: str, today: date | None = None) -> date:
         if s == f"next {day}":
             days_ahead = (i - today.weekday() + 7) % 7 or 7
             return today + timedelta(days=days_ahead)
-        if s == f"last {day}":
+        if s in (f"last {day}", f"previous {day}"):
             days_ago = (today.weekday() - i + 7) % 7 or 7
             return today - timedelta(days=days_ago)
-        if s == day:
+        if s in (f"this {day}", day):
             days_ahead = (i - today.weekday() + 7) % 7 or 7
             return today + timedelta(days=days_ahead)
 
@@ -44,19 +62,20 @@ def parse(s: str, today: date | None = None) -> date:
         return _add_unit(today, -int(m.group(1)), m.group(2))
 
     m = re.fullmatch(
-        r"(\d+) (day|days|week|weeks|month|months|year|years) (before|after) (.+)", s
+        r"(\d+) (day|days|week|weeks|month|months|year|years) (before|after|from) (.+)",
+        s,
     )
     if m:
         n = int(m.group(1))
-        direction = 1 if m.group(3) == "after" else -1
+        direction = 1 if m.group(3) in ("after", "from") else -1
         ref = parse(m.group(4), today)
         return _add_unit(ref, direction * n, m.group(2))
 
-    m = re.fullmatch(r"(\d+) years? and (\d+) months? (before|after) (.+)", s)
+    m = re.fullmatch(r"(\d+) years? and (\d+) months? (before|after|from) (.+)", s)
     if m:
         years = int(m.group(1))
         months = int(m.group(2))
-        direction = 1 if m.group(3) == "after" else -1
+        direction = 1 if m.group(3) in ("after", "from") else -1
         ref = parse(m.group(4), today)
         return _add_months(ref, direction * (years * 12 + months))
 
@@ -109,8 +128,6 @@ def _add_months(d: date, n: int) -> date:
     month = d.month - 1 + n
     year = d.year + month // 12
     month = month % 12 + 1
-    import calendar
-
     day = min(d.day, calendar.monthrange(year, month)[1])
     return date(year, month, day)
 
@@ -150,16 +167,28 @@ def _parse_absolute(s: str) -> date | None:
     if m:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
+    m = re.fullmatch(r"(\d{4})\.(\d{1,2})\.(\d{1,2})", s)
+    if m:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
     m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", s)
     if m:
         return date(int(m.group(3)), int(m.group(1)), int(m.group(2)))
 
-    m = re.fullmatch(r"([a-z]+) (\d{1,2})(?:st|nd|rd|th)?,? (\d{4})", s)
-    if m and m.group(1) in months_map:
-        return date(int(m.group(3)), months_map[m.group(1)], int(m.group(2)))
+    m = re.fullmatch(r"(\d{1,2})-(\d{1,2})-(\d{4})", s)
+    if m:
+        return date(int(m.group(3)), int(m.group(1)), int(m.group(2)))
 
-    m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)? ([a-z]+),? (\d{4})", s)
-    if m and m.group(2) in months_map:
-        return date(int(m.group(3)), months_map[m.group(2)], int(m.group(1)))
+    m = re.fullmatch(r"([a-z]+\.?) (\d{1,2})(?:st|nd|rd|th)?,? (\d{4})", s)
+    if m and m.group(1).rstrip(".") in months_map:
+        return date(
+            int(m.group(3)), months_map[m.group(1).rstrip(".")], int(m.group(2))
+        )
+
+    m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)? ([a-z]+\.?),? (\d{4})", s)
+    if m and m.group(2).rstrip(".") in months_map:
+        return date(
+            int(m.group(3)), months_map[m.group(2).rstrip(".")], int(m.group(1))
+        )
 
     return None
