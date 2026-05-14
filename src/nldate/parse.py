@@ -21,6 +21,12 @@ WORD_NUMS = {
 }
 
 
+def _to_n(s: str) -> int | None:
+    if s.isdigit():
+        return int(s)
+    return WORD_NUMS.get(s)
+
+
 def parse(s: str, today: date | None = None) -> date:
     if today is None:
         today = date.today()
@@ -72,54 +78,39 @@ def parse(s: str, today: date | None = None) -> date:
             return today + timedelta(days=days_ahead)
 
     units = r"(day|days|week|weeks|month|months|year|years)"
+    num = r"(\d+|[a-z]+)"
 
-    m = re.fullmatch(rf"in (\d+) {units}", s)
+    m = re.fullmatch(rf"in {num} {units}", s)
     if m:
-        return _add_unit(today, int(m.group(1)), m.group(2))
+        n = _to_n(m.group(1))
+        if n is not None:
+            return _add_unit(today, n, m.group(2))
 
-    m = re.fullmatch(rf"in ([a-z]+) {units}", s)
-    if m and m.group(1) in WORD_NUMS:
-        return _add_unit(today, WORD_NUMS[m.group(1)], m.group(2))
-
-    m = re.fullmatch(rf"(\d+) {units} ago", s)
+    m = re.fullmatch(rf"{num} {units} ago", s)
     if m:
-        return _add_unit(today, -int(m.group(1)), m.group(2))
+        n = _to_n(m.group(1))
+        if n is not None:
+            return _add_unit(today, -n, m.group(2))
 
-    m = re.fullmatch(rf"([a-z]+) {units} ago", s)
-    if m and m.group(1) in WORD_NUMS:
-        return _add_unit(today, -WORD_NUMS[m.group(1)], m.group(2))
-
-    m = re.fullmatch(rf"(\d+) {units} (before|after|from) (.+)", s)
+    m = re.fullmatch(rf"{num} {units} (before|after|from) (.+)", s)
     if m:
-        n = int(m.group(1))
-        direction = 1 if m.group(3) in ("after", "from") else -1
-        ref = parse(m.group(4), today)
-        return _add_unit(ref, direction * n, m.group(2))
+        n = _to_n(m.group(1))
+        if n is not None:
+            direction = 1 if m.group(3) in ("after", "from") else -1
+            ref = parse(m.group(4), today)
+            return _add_unit(ref, direction * n, m.group(2))
 
-    m = re.fullmatch(rf"([a-z]+) {units} (before|after|from) (.+)", s)
-    if m and m.group(1) in WORD_NUMS:
-        n = WORD_NUMS[m.group(1)]
-        direction = 1 if m.group(3) in ("after", "from") else -1
-        ref = parse(m.group(4), today)
-        return _add_unit(ref, direction * n, m.group(2))
-
-    m = re.fullmatch(r"(\d+) years? and (\d+) months? (before|after|from) (.+)", s)
-    if m:
-        years = int(m.group(1))
-        months = int(m.group(2))
-        direction = 1 if m.group(3) in ("after", "from") else -1
-        ref = parse(m.group(4), today)
-        return _add_months(ref, direction * (years * 12 + months))
-
+    # "2 years, 3 months before ..." or "2 years and 3 months before ..."
     m = re.fullmatch(
-        r"([a-z]+) years? and ([a-z]+) months? (before|after|from) (.+)", s
+        rf"{num} years?(?:,| and|,? and) {num} months? (before|after|from) (.+)", s
     )
-    if m and m.group(1) in WORD_NUMS and m.group(2) in WORD_NUMS:
-        years = WORD_NUMS[m.group(1)]
-        months = WORD_NUMS[m.group(2)]
-        direction = 1 if m.group(3) in ("after", "from") else -1
-        ref = parse(m.group(4), today)
-        return _add_months(ref, direction * (years * 12 + months))
+    if m:
+        ny = _to_n(m.group(1))
+        nm = _to_n(m.group(2))
+        if ny is not None and nm is not None:
+            direction = 1 if m.group(3) in ("after", "from") else -1
+            ref = parse(m.group(4), today)
+            return _add_months(ref, direction * (ny * 12 + nm))
 
     result = _parse_absolute(s)
     if result:
