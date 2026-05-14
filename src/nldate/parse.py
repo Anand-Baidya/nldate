@@ -146,6 +146,10 @@ def _parse_absolute(s: str) -> date | None:
     if m:
         return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
+    m = re.fullmatch(r"(\d{4})/(\d{1,2})/(\d{1,2})", s)
+    if m:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+
     m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", s)
     if m:
         return date(int(m.group(3)), int(m.group(1)), int(m.group(2)))
