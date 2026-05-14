@@ -15,7 +15,15 @@ def parse(s: str, today: date | None = None) -> date:
     if s == "yesterday":
         return today + timedelta(days=-1)
 
-    weekdays = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+    weekdays = [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    ]
     for i, day in enumerate(weekdays):
         if s == f"next {day}":
             days_ahead = (i - today.weekday() + 7) % 7 or 7
@@ -53,12 +61,24 @@ def parse(s: str, today: date | None = None) -> date:
         return _add_months(ref, direction * (years * 12 + months))
 
     word_nums = {
-        "one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,
-        "eight":8,"nine":9,"ten":10,"eleven":11,"twelve":12,
-        "a":1,"an":1
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+        "eleven": 11,
+        "twelve": 12,
+        "a": 1,
+        "an": 1,
     }
     m = re.fullmatch(
-        r"([a-z]+) (day|days|week|weeks|month|months|year|years) (from|before|after) (.+)", s
+        r"([a-z]+) (day|days|week|weeks|month|months|year|years) (from|before|after) (.+)",
+        s,
     )
     if m and m.group(1) in word_nums:
         n = word_nums[m.group(1)]
@@ -90,16 +110,36 @@ def _add_months(d: date, n: int) -> date:
     year = d.year + month // 12
     month = month % 12 + 1
     import calendar
+
     day = min(d.day, calendar.monthrange(year, month)[1])
     return date(year, month, day)
 
 
 def _parse_absolute(s: str) -> date | None:
     months_map = {
-        "january":1,"february":2,"march":3,"april":4,"may":5,"june":6,
-        "july":7,"august":8,"september":9,"october":10,"november":11,"december":12,
-        "jan":1,"feb":2,"mar":3,"apr":4,"jun":6,"jul":7,"aug":8,
-        "sep":9,"oct":10,"nov":11,"dec":12,
+        "january": 1,
+        "february": 2,
+        "march": 3,
+        "april": 4,
+        "may": 5,
+        "june": 6,
+        "july": 7,
+        "august": 8,
+        "september": 9,
+        "october": 10,
+        "november": 11,
+        "december": 12,
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
     }
 
     m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
